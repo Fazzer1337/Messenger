@@ -1,14 +1,17 @@
 ﻿using messenger.Models;
 using System.Collections.ObjectModel;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
 
 namespace messenger
 {
     public partial class MainWindow : Window
     {
         public ObservableCollection<User> Users { get; set; }
-        public ObservableCollection<Message> Messages { get; set; }
+        private Dictionary<string, ObservableCollection<Message>> ChatMessages;
+        private User? currentUser; // допускает null
         private string _userName;
 
         // Конструктор по умолчанию для работы XAML
@@ -24,29 +27,47 @@ namespace messenger
                 new User { Name = _userName },
                 new User { Name = "Bot", Status = "Онлайн" }
             };
-            Messages = new ObservableCollection<Message>();
+
+            // Инициализация чатов для каждого пользователя
+            ChatMessages = new Dictionary<string, ObservableCollection<Message>>();
+            foreach (var user in Users)
+                ChatMessages[user.Name] = new ObservableCollection<Message>();
+
             UsersList.ItemsSource = Users;
-            MessagesList.ItemsSource = Messages;
+            UsersList.SelectionChanged += UsersList_SelectionChanged;
+            UsersList.SelectedIndex = 0; // Выбрать "себя" или первого пользователя
+
             Title = $"Мессенджер — {_userName}";
+        }
+
+        // Обновление MessageList при смене собеседника
+        private void UsersList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            currentUser = UsersList.SelectedItem as User;
+            if (currentUser != null)
+                MessagesList.ItemsSource = ChatMessages[currentUser.Name];
+            else
+                MessagesList.ItemsSource = null;
         }
 
         private void SendButton_Click(object sender, RoutedEventArgs e)
         {
             string text = MessageTextBox.Text.Trim();
-            if (!string.IsNullOrWhiteSpace(text))
+            if (!string.IsNullOrWhiteSpace(text) && currentUser != null)
             {
-                Messages.Add(new Message(text, _userName));
+                ChatMessages[currentUser.Name].Add(new Message(text, _userName));
                 MessageTextBox.Text = string.Empty;
 
-                // Демонстрационный автоответ
-                RespondFromBot();
+                // Отвечает бот, если выбран бот
+                if (currentUser.Name == "Bot")
+                    RespondFromBot();
             }
         }
 
         private async void RespondFromBot()
         {
             await Task.Delay(1000);
-            Messages.Add(new Message("Это автоответ.", "Bot"));
+            ChatMessages["Bot"].Add(new Message("Это автоответ.", "Bot"));
         }
     }
 }
