@@ -14,5 +14,10 @@ namespace messenger.Models
             Sender = sender;
             Time = DateTime.Now;
         }
+
+        public override string ToString()
+        {
+            return $"[{Time:HH:mm:ss}] {Sender}: {Text}";
+        }
     }
 }
