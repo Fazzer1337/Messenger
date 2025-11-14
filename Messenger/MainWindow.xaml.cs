@@ -1,8 +1,10 @@
-﻿using System.Windows;
+﻿using System;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
+using System.Windows;
 using System.Windows.Controls;
 using messenger.Models;
 using messenger.Services;
@@ -15,23 +17,19 @@ namespace messenger
         public string UserName { get; set; }
         private Dictionary<string, ObservableCollection<Message>> ChatMessages;
         private User? currentUser;
-
         private P2PChatService? chatService;
         private int localPort = 9000;
         private string remoteIp = "127.0.0.1";
         private int remotePort = 9001;
 
-        // Конструктор по умолчанию (для запуска из App.xaml.cs без параметров)
         public MainWindow() : this("Гость") { }
 
-        // Конструктор с параметром (можно запускать, если потребуется)
         public MainWindow(string userName)
         {
             InitializeComponent();
             UserName = userName;
             DataContext = this;
 
-            // При первом запуске — спрашиваем ник
             this.Loaded += MainWindow_Loaded;
 
             Users = new ObservableCollection<User>
@@ -55,6 +53,8 @@ namespace messenger
             chatService.OnMessageReceived += OnMessageReceived;
             chatService.StartServer();
 
+            SendUserPresence();
+
             LoadHistory();
         }
 
@@ -66,15 +66,15 @@ namespace messenger
             {
                 UserName = loginWindow.UserName;
                 Title = $"Мессенджер — {UserName}";
-                DataContext = null; // Чтобы обновился binding
+                DataContext = null;
                 DataContext = this;
+                SendUserPresence();
             }
             else
             {
-                Close(); // Если не выбран ник — закрываем приложение
+                Close();
             }
-
-            this.Loaded -= MainWindow_Loaded; // Не вызывать больше при повторных Loaded
+            this.Loaded -= MainWindow_Loaded;
         }
 
         private int GetLocalPort()
@@ -104,7 +104,11 @@ namespace messenger
                 if (PortTextBox != null && int.TryParse(PortTextBox.Text, out int port))
                     remotePort = port;
 
-                var msg = new Message(text, UserName);
+                var msg = new Message(text, UserName)
+                {
+                    // свойство Type можно добавить в Message.cs если требуется, либо удалить эту строку
+                };
+
                 ChatMessages[currentUser.Name].Add(msg);
                 MessageTextBox.Text = string.Empty;
                 SaveHistory();
@@ -114,14 +118,35 @@ namespace messenger
             }
         }
 
+        private void SendUserPresence()
+        {
+            if (chatService == null) return;
+
+            var presenceMsg = new Message(UserName, UserName)
+            {
+                Text = "Online"
+                // свойство Type можно добавить в Message.cs если требуется, либо удалить эту строку
+            };
+
+            chatService.SendMessageAsync(remoteIp, remotePort, presenceMsg);
+        }
+
         private void OnMessageReceived(Message msg)
         {
             Dispatcher.Invoke(() =>
             {
-                if (!ChatMessages.ContainsKey(msg.Sender))
-                    ChatMessages[msg.Sender] = new ObservableCollection<Message>();
-                ChatMessages[msg.Sender].Add(msg);
-                SaveHistory();
+                if (msg.Text == "Online")
+                {
+                    if (!Users.Any(u => u.Name == msg.Sender))
+                        Users.Add(new User { Name = msg.Sender, Status = "Онлайн" });
+                }
+                else
+                {
+                    if (!ChatMessages.ContainsKey(msg.Sender))
+                        ChatMessages[msg.Sender] = new ObservableCollection<Message>();
+                    ChatMessages[msg.Sender].Add(msg);
+                    SaveHistory();
+                }
             });
         }
 
@@ -134,13 +159,12 @@ namespace messenger
 
         private void LoadHistory()
         {
-            if (File.Exists("chat_history.json"))
-            {
-                var json = File.ReadAllText("chat_history.json");
-                var restored = JsonSerializer.Deserialize<Dictionary<string, ObservableCollection<Message>>>(json);
-                if (restored != null)
-                    ChatMessages = restored;
-            }
+            if (!File.Exists("chat_history.json")) return;
+
+            var json = File.ReadAllText("chat_history.json");
+            var restored = JsonSerializer.Deserialize<Dictionary<string, ObservableCollection<Message>>>(json);
+            if (restored != null)
+                ChatMessages = restored;
         }
     }
 }
