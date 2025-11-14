@@ -8,9 +8,9 @@
             <ColumnDefinition Width="220"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
-        <!-- Левая панель: Пользователи и настройки -->
+        <!-- Левая панель -->
         <Border Grid.Column="0" Background="White" Margin="10">
-            <StackPanel Margin="10" >
+            <StackPanel Margin="10">
                 <Border CornerRadius="8" Background="#d6e4ff" Padding="12" Margin="0,0,0,18" BorderBrush="#8ab3f0" BorderThickness="1">
                     <StackPanel>
                         <TextBlock Text="{Binding UserName}" FontWeight="Bold" FontSize="20" Foreground="#2067b2"/>
@@ -23,16 +23,13 @@
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal" Margin="0,5">
-                                <!-- Без цветного кружка для совместимости, если нужен — добавь конвертер и ресурсы! -->
                                 <TextBlock Text="{Binding Name}" FontWeight="SemiBold" Foreground="#333" Margin="0,0,6,0"/>
                                 <TextBlock Text="{Binding Status}" FontSize="12" Foreground="Gray"/>
                             </StackPanel>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
-
                 <Separator Margin="0,15"/>
-
                 <StackPanel>
                     <TextBlock Text="Локальный порт:" FontSize="13" Margin="0,5,0,0"/>
                     <TextBox x:Name="LocalPortTextBox" Text="9000" Margin="0,3,0,10"/>
@@ -44,7 +41,7 @@
             </StackPanel>
         </Border>
 
-        <!-- Правая панель: Сообщения и ввод -->
+        <!-- Правая панель -->
         <Border Grid.Column="1" Background="White" Margin="10" CornerRadius="8">
             <Grid Margin="10">
                 <Grid.RowDefinitions>
@@ -66,7 +63,7 @@
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
-                <!-- Ввод сообщения -->
+                <!-- Ввод сообщения + кнопка прикрепления -->
                 <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,12,0,0">
                     <TextBox x:Name="MessageTextBox"
                              AcceptsReturn="True"
@@ -75,7 +72,11 @@
                              Height="70" Width="400"
                              FontSize="14"
                              PreviewKeyDown="MessageTextBox_PreviewKeyDown"/>
-                    <Button Content="Отправить" Width="100" Margin="12,0,0,0"
+                    <Button Width="45" Height="45" Margin="8,0,0,0" Click="AttachFileButton_Click"
+                            Background="#f2f6ff" BorderThickness="0" ToolTip="Прикрепить файл">
+                        <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="24" Foreground="#2067b2">+</TextBlock>
+                    </Button>
+                    <Button Content="Отправить" Width="100" Margin="8,0,0,0"
                             FontWeight="Bold" Background="#2067b2" Foreground="White"
                             Click="SendButton_Click"/>
                 </StackPanel>

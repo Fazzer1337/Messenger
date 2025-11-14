@@ -1,16 +1,17 @@
-﻿using System;
-using System.Collections.ObjectModel;
+﻿using messenger.Models;
+using messenger.Services;
+using Microsoft.Win32;
+using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Threading;
-using System.ComponentModel;
 using System.Windows.Input;
-using messenger.Models;
-using messenger.Services;
+using System.Windows.Threading;
 
 namespace messenger
 {
@@ -205,7 +206,30 @@ namespace messenger
                 MessagesList.ItemsSource = null;
             }
         }
+        private void AttachFileButton_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new OpenFileDialog();
+            dialog.Title = "Выберите файл для отправки";
+            dialog.Filter = "Все файлы (*.*)|*.*";
+            dialog.Multiselect = false;
+            if (dialog.ShowDialog() == true)
+            {
+                string filePath = dialog.FileName;
+                string fileName = System.IO.Path.GetFileName(filePath);
 
+                if (currentUser != null)
+                {
+                    var msg = new Message($"[Файл] {fileName}", UserName);
+                    if (!ChatMessages.ContainsKey(currentUser.Name))
+                        ChatMessages[currentUser.Name] = new ObservableCollection<Message>();
+
+                    ChatMessages[currentUser.Name].Add(msg);
+                    MessagesList.ItemsSource = ChatMessages[currentUser.Name];
+                    ScrollMessagesListToEnd();
+                    SaveHistory();
+                }
+            }
+        }
         private async void SendButton_Click(object sender, RoutedEventArgs e)
         {
             string text = MessageTextBox.Text.Trim();
