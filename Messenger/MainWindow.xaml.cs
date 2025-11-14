@@ -11,6 +11,7 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace messenger
@@ -33,6 +34,7 @@ namespace messenger
         private int broadcastPort = 8001;
         private Random rnd = new Random();
         private const string BotName = "Умный Бэн";
+        private bool isDarkTheme = false;
 
         private string userStatus = "В сети";
         public string UserStatus
@@ -92,7 +94,7 @@ namespace messenger
             chatService.StartServer();
 
             udpDiscovery = new UdpDiscoveryService(broadcastPort);
-            udpDiscovery.UserDiscovered += name =>
+            udpDiscovery.UserDiscovered += (name) =>
             {
                 Dispatcher.Invoke(() =>
                 {
@@ -187,8 +189,7 @@ namespace messenger
 
         private int GetLocalPort()
         {
-            int port;
-            if (LocalPortTextBox != null && int.TryParse(LocalPortTextBox.Text, out port))
+            if (LocalPortTextBox != null && int.TryParse(LocalPortTextBox.Text, out int port))
                 return port;
             return localPort;
         }
@@ -206,16 +207,18 @@ namespace messenger
                 MessagesList.ItemsSource = null;
             }
         }
+
         private void AttachFileButton_Click(object sender, RoutedEventArgs e)
         {
-            var dialog = new OpenFileDialog();
-            dialog.Title = "Выберите файл для отправки";
-            dialog.Filter = "Все файлы (*.*)|*.*";
-            dialog.Multiselect = false;
+            var dialog = new OpenFileDialog
+            {
+                Title = "Выберите файл для отправки",
+                Filter = "Все файлы (*.*)|*.*",
+                Multiselect = false
+            };
             if (dialog.ShowDialog() == true)
             {
-                string filePath = dialog.FileName;
-                string fileName = System.IO.Path.GetFileName(filePath);
+                string fileName = System.IO.Path.GetFileName(dialog.FileName);
 
                 if (currentUser != null)
                 {
@@ -230,6 +233,7 @@ namespace messenger
                 }
             }
         }
+
         private async void SendButton_Click(object sender, RoutedEventArgs e)
         {
             string text = MessageTextBox.Text.Trim();
@@ -333,6 +337,36 @@ namespace messenger
                     SaveHistory();
                 }
             });
+        }
+
+        private void ClearChatButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (currentUser != null && ChatMessages.ContainsKey(currentUser.Name))
+            {
+                ChatMessages[currentUser.Name].Clear();
+                MessagesList.ItemsSource = null;
+                MessagesList.ItemsSource = ChatMessages[currentUser.Name];
+                SaveHistory();
+            }
+        }
+
+        private void SwitchThemeButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (isDarkTheme) // переключаем на светлую
+            {
+                this.Resources["WindowBackground"] = new SolidColorBrush(Color.FromRgb(240, 240, 245)); // #f0f0f5
+                this.Resources["PanelBackground"] = new SolidColorBrush(Colors.White);
+                this.Resources["TextColor"] = new SolidColorBrush(Color.FromRgb(33, 42, 60)); // #212a3c - тёмно-серый для светлой темы
+                this.Resources["UserStatusColor"] = new SolidColorBrush(Color.FromRgb(33, 42, 60)); // тёмно-серый для статуса
+            }
+            else // переключаем на тёмную (темно-синий текст, белый статус)
+            {
+                this.Resources["WindowBackground"] = new SolidColorBrush(Color.FromRgb(33, 42, 60)); // #212a3c - тёмный фон
+                this.Resources["PanelBackground"] = new SolidColorBrush(Color.FromRgb(32, 103, 178));  // #2067b2 - синий фон панели
+                this.Resources["TextColor"] = new SolidColorBrush(Color.FromRgb(17, 34, 68)); // тёмно-синий текст (#112244)
+                this.Resources["UserStatusColor"] = new SolidColorBrush(Colors.White); // белый цвет для статуса
+            }
+            isDarkTheme = !isDarkTheme;
         }
 
         private void SaveHistory()
