@@ -233,6 +233,7 @@ namespace messenger
                     string[] botReplies = new[] { "Да", "Нет", "Возможно" };
                     var botMsg = new Message(botReplies[rnd.Next(botReplies.Length)], BotName);
                     ChatMessages[BotName].Add(botMsg);
+
                     if (currentUser.Name == BotName)
                         MessagesList.ItemsSource = ChatMessages[BotName];
                     ScrollMessagesListToEnd();
@@ -313,8 +314,9 @@ namespace messenger
         private void SaveHistory()
         {
             var options = new JsonSerializerOptions { WriteIndented = true };
-            var dictToSave = ChatMessages.Where(kvp => kvp.Key != BotName)
-                                         .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+            var dictToSave = ChatMessages
+                .Where(kvp => kvp.Key != BotName)
+                .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
             var jsonWithoutBot = JsonSerializer.Serialize(dictToSave, options);
             File.WriteAllText("chat_history.json", jsonWithoutBot);
         }
@@ -327,7 +329,6 @@ namespace messenger
             if (restored != null)
             {
                 ChatMessages = restored;
-                // Очищаем чат бота при загрузке
                 ChatMessages[BotName] = new ObservableCollection<Message>();
             }
         }
