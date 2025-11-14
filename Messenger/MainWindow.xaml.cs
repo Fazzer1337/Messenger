@@ -1,73 +1,146 @@
-﻿using messenger.Models;
+﻿using System.Windows;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
-using System.Threading.Tasks;
-using System.Windows;
+using System.IO;
+using System.Text.Json;
 using System.Windows.Controls;
+using messenger.Models;
+using messenger.Services;
 
 namespace messenger
 {
     public partial class MainWindow : Window
     {
         public ObservableCollection<User> Users { get; set; }
+        public string UserName { get; set; }
         private Dictionary<string, ObservableCollection<Message>> ChatMessages;
-        private User? currentUser; // допускает null
-        private string _userName;
+        private User? currentUser;
 
-        // Конструктор по умолчанию для работы XAML
+        private P2PChatService? chatService;
+        private int localPort = 9000;
+        private string remoteIp = "127.0.0.1";
+        private int remotePort = 9001;
+
+        // Конструктор по умолчанию (для запуска из App.xaml.cs без параметров)
         public MainWindow() : this("Гость") { }
 
-        // Основной конструктор для передачи имени пользователя
+        // Конструктор с параметром (можно запускать, если потребуется)
         public MainWindow(string userName)
         {
             InitializeComponent();
-            _userName = userName;
+            UserName = userName;
+            DataContext = this;
+
+            // При первом запуске — спрашиваем ник
+            this.Loaded += MainWindow_Loaded;
+
             Users = new ObservableCollection<User>
             {
-                new User { Name = _userName },
-                new User { Name = "Bot", Status = "Онлайн" }
+                new User { Name = "Партнёр", Status = "Онлайн" }
             };
 
-            // Инициализация чатов для каждого пользователя
             ChatMessages = new Dictionary<string, ObservableCollection<Message>>();
             foreach (var user in Users)
                 ChatMessages[user.Name] = new ObservableCollection<Message>();
 
             UsersList.ItemsSource = Users;
             UsersList.SelectionChanged += UsersList_SelectionChanged;
-            UsersList.SelectedIndex = 0; // Выбрать "себя" или первого пользователя
 
-            Title = $"Мессенджер — {_userName}";
+            if (Users.Count > 0)
+                UsersList.SelectedIndex = 0;
+
+            Title = $"Мессенджер — {UserName}";
+
+            chatService = new P2PChatService(GetLocalPort());
+            chatService.OnMessageReceived += OnMessageReceived;
+            chatService.StartServer();
+
+            LoadHistory();
         }
 
-        // Обновление MessageList при смене собеседника
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            var loginWindow = new UserNameWindow();
+            loginWindow.Owner = this;
+            if (loginWindow.ShowDialog() == true && !string.IsNullOrWhiteSpace(loginWindow.UserName))
+            {
+                UserName = loginWindow.UserName;
+                Title = $"Мессенджер — {UserName}";
+                DataContext = null; // Чтобы обновился binding
+                DataContext = this;
+            }
+            else
+            {
+                Close(); // Если не выбран ник — закрываем приложение
+            }
+
+            this.Loaded -= MainWindow_Loaded; // Не вызывать больше при повторных Loaded
+        }
+
+        private int GetLocalPort()
+        {
+            int port;
+            if (LocalPortTextBox != null && int.TryParse(LocalPortTextBox.Text, out port))
+                return port;
+            return localPort;
+        }
+
         private void UsersList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             currentUser = UsersList.SelectedItem as User;
-            if (currentUser != null)
+            if (currentUser != null && ChatMessages.ContainsKey(currentUser.Name))
                 MessagesList.ItemsSource = ChatMessages[currentUser.Name];
             else
                 MessagesList.ItemsSource = null;
         }
 
-        private void SendButton_Click(object sender, RoutedEventArgs e)
+        private async void SendButton_Click(object sender, RoutedEventArgs e)
         {
             string text = MessageTextBox.Text.Trim();
             if (!string.IsNullOrWhiteSpace(text) && currentUser != null)
             {
-                ChatMessages[currentUser.Name].Add(new Message(text, _userName));
-                MessageTextBox.Text = string.Empty;
+                if (IpTextBox != null)
+                    remoteIp = IpTextBox.Text.Trim();
+                if (PortTextBox != null && int.TryParse(PortTextBox.Text, out int port))
+                    remotePort = port;
 
-                // Отвечает бот, если выбран бот
-                if (currentUser.Name == "Bot")
-                    RespondFromBot();
+                var msg = new Message(text, UserName);
+                ChatMessages[currentUser.Name].Add(msg);
+                MessageTextBox.Text = string.Empty;
+                SaveHistory();
+
+                if (chatService != null)
+                    await chatService.SendMessageAsync(remoteIp, remotePort, msg);
             }
         }
 
-        private async void RespondFromBot()
+        private void OnMessageReceived(Message msg)
         {
-            await Task.Delay(1000);
-            ChatMessages["Bot"].Add(new Message("Это автоответ.", "Bot"));
+            Dispatcher.Invoke(() =>
+            {
+                if (!ChatMessages.ContainsKey(msg.Sender))
+                    ChatMessages[msg.Sender] = new ObservableCollection<Message>();
+                ChatMessages[msg.Sender].Add(msg);
+                SaveHistory();
+            });
+        }
+
+        private void SaveHistory()
+        {
+            var options = new JsonSerializerOptions { WriteIndented = true };
+            var json = JsonSerializer.Serialize(ChatMessages, options);
+            File.WriteAllText("chat_history.json", json);
+        }
+
+        private void LoadHistory()
+        {
+            if (File.Exists("chat_history.json"))
+            {
+                var json = File.ReadAllText("chat_history.json");
+                var restored = JsonSerializer.Deserialize<Dictionary<string, ObservableCollection<Message>>>(json);
+                if (restored != null)
+                    ChatMessages = restored;
+            }
         }
     }
 }

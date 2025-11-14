@@ -5,6 +5,7 @@ namespace messenger
     public partial class UserNameWindow : Window
     {
         public string UserName { get; private set; } = string.Empty;
+
         public UserNameWindow()
         {
             InitializeComponent();
@@ -15,7 +16,7 @@ namespace messenger
             if (!string.IsNullOrWhiteSpace(UserNameTextBox.Text))
             {
                 UserName = UserNameTextBox.Text.Trim();
-                DialogResult = true;
+                DialogResult = true;  // Зафиксировать успешный ввод
                 Close();
             }
             else

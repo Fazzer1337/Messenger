@@ -1,14 +1,17 @@
-﻿using System.Configuration;
-using System.Data;
-using System.Windows;
+﻿using System.Windows;
 
-namespace Messenger
+namespace messenger
 {
-    /// <summary>
-    /// Interaction logic for App.xaml
-    /// </summary>
     public partial class App : Application
     {
-    }
+        protected override void OnStartup(StartupEventArgs e)
+        {
+            base.OnStartup(e);
 
+            // Создаём и показываем сразу главное окно
+            var mainWindow = new MainWindow();
+            mainWindow.Show();
+            this.MainWindow = mainWindow;
+        }
+    }
 }
