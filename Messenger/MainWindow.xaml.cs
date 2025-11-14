@@ -7,15 +7,18 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
+using System.ComponentModel;
 using messenger.Models;
 using messenger.Services;
 
 namespace messenger
 {
-    public partial class MainWindow : Window
+    public partial class MainWindow : Window, INotifyPropertyChanged
     {
         public ObservableCollection<User> Users { get; set; }
         public string UserName { get; set; }
+        public event PropertyChangedEventHandler? PropertyChanged;
+
         private Dictionary<string, ObservableCollection<Message>> ChatMessages;
         private Dictionary<string, DateTime> UserLastSeen;
         private User? currentUser;
@@ -29,6 +32,25 @@ namespace messenger
         private Random rnd = new Random();
         private const string BotName = "Умный Бэн";
 
+        private string userStatus = "В сети";
+        public string UserStatus
+        {
+            get => userStatus;
+            set
+            {
+                if (userStatus != value)
+                {
+                    userStatus = value;
+                    OnPropertyChanged(nameof(UserStatus));
+                }
+            }
+        }
+
+        protected void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
         public MainWindow() : this("Спам") { }
 
         public MainWindow(string userName)
@@ -41,8 +63,8 @@ namespace messenger
 
             Users = new ObservableCollection<User>
             {
-                new User { Name = userName, Status = "Онлайн" },
-                new User { Name = BotName, Status = "Онлайн" }
+                new User { Name = userName, Status = "В сети" },
+                new User { Name = BotName, Status = "В сети" }
             };
 
             ChatMessages = new Dictionary<string, ObservableCollection<Message>>();
@@ -77,14 +99,15 @@ namespace messenger
                     var user = Users.FirstOrDefault(u => u.Name == name);
                     if (user == null)
                     {
-                        Users.Add(new User { Name = name, Status = "Онлайн" });
+                        Users.Add(new User { Name = name, Status = "В сети" });
                         ChatMessages[name] = new ObservableCollection<Message>();
+                        UserLastSeen[name] = DateTime.Now;
                     }
                     else
                     {
-                        user.Status = "Онлайн";
+                        user.Status = "В сети";
+                        UserLastSeen[name] = DateTime.Now;
                     }
-                    UserLastSeen[name] = DateTime.Now;
                 });
             };
             udpDiscovery.StartListening();
@@ -107,12 +130,12 @@ namespace messenger
             {
                 if (user.Name == UserName || user.Name == BotName)
                 {
-                    user.Status = "Онлайн";
+                    user.Status = "В сети";
                     continue;
                 }
                 if (UserLastSeen.TryGetValue(user.Name, out var lastSeen))
                 {
-                    user.Status = (now - lastSeen).TotalSeconds < 30 ? "Онлайн" : "Не в сети";
+                    user.Status = (now - lastSeen).TotalSeconds < 30 ? "В сети" : "Не в сети";
                 }
                 else
                 {
@@ -135,13 +158,13 @@ namespace messenger
                 var selfUser = Users.FirstOrDefault(u => u.Name == UserName);
                 if (selfUser == null)
                 {
-                    Users.Insert(0, new User { Name = UserName, Status = "Онлайн" });
+                    Users.Insert(0, new User { Name = UserName, Status = "В сети" });
                     ChatMessages[UserName] = new ObservableCollection<Message>();
                     UserLastSeen[UserName] = DateTime.Now;
                 }
                 else
                 {
-                    selfUser.Status = "Онлайн";
+                    selfUser.Status = "В сети";
                 }
 
                 UsersList.SelectedIndex = 0;
@@ -198,17 +221,18 @@ namespace messenger
                 MessageTextBox.Text = string.Empty;
                 SaveHistory();
 
-                // === BOT LOGIC ===
                 if (currentUser.Name == BotName)
                 {
                     string[] botReplies = new[] { "Да", "Нет", "Возможно" };
                     var botMsg = new Message(botReplies[rnd.Next(botReplies.Length)], BotName);
                     ChatMessages[BotName].Add(botMsg);
-                    MessagesList.ItemsSource = ChatMessages[BotName];
+
+                    if (currentUser != null && currentUser.Name == BotName)
+                        MessagesList.ItemsSource = ChatMessages[BotName];
+
                     SaveHistory();
                     return;
                 }
-                // =================
 
                 if (chatService != null)
                     await chatService.SendMessageAsync(remoteIp, remotePort, msg);
@@ -238,12 +262,12 @@ namespace messenger
                     var user = Users.FirstOrDefault(u => u.Name == msg.Sender);
                     if (user == null)
                     {
-                        Users.Add(new User { Name = msg.Sender, Status = "Онлайн" });
+                        Users.Add(new User { Name = msg.Sender, Status = "В сети" });
                         ChatMessages[msg.Sender] = new ObservableCollection<Message>();
                     }
                     else
                     {
-                        user.Status = "Онлайн";
+                        user.Status = "В сети";
                     }
                     UserLastSeen[msg.Sender] = DateTime.Now;
                 }
@@ -252,10 +276,8 @@ namespace messenger
                     if (!ChatMessages.ContainsKey(msg.Sender))
                         ChatMessages[msg.Sender] = new ObservableCollection<Message>();
                     ChatMessages[msg.Sender].Add(msg);
-
                     if (currentUser != null && currentUser.Name == msg.Sender)
                         MessagesList.ItemsSource = ChatMessages[msg.Sender];
-
                     SaveHistory();
                 }
             });
@@ -265,7 +287,14 @@ namespace messenger
         {
             var options = new JsonSerializerOptions { WriteIndented = true };
             var json = JsonSerializer.Serialize(ChatMessages, options);
-            File.WriteAllText("chat_history.json", json);
+
+            var dictToSave = ChatMessages
+                .Where(kvp => kvp.Key != BotName)
+                .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+
+            var jsonWithoutBot = JsonSerializer.Serialize(dictToSave, options);
+
+            File.WriteAllText("chat_history.json", jsonWithoutBot);
         }
 
         private void LoadHistory()
@@ -274,7 +303,10 @@ namespace messenger
             var json = File.ReadAllText("chat_history.json");
             var restored = JsonSerializer.Deserialize<Dictionary<string, ObservableCollection<Message>>>(json);
             if (restored != null)
+            {
                 ChatMessages = restored;
+                ChatMessages[BotName] = new ObservableCollection<Message>();
+            }
         }
     }
 }

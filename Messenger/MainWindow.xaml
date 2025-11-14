@@ -8,16 +8,25 @@
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
         <StackPanel Grid.Column="0" Margin="8">
-            <!-- Некликабельное имя пользователя -->
+            <!-- Некликабельное имя пользователя и статус -->
             <Border CornerRadius="6" Background="#eef5ff" Padding="6,4" Margin="0,0,0,12" BorderBrush="#90c3ff" BorderThickness="1">
                 <StackPanel>
                     <TextBlock Text="{Binding UserName}" FontWeight="Bold" FontSize="16" Foreground="#2067b2"/>
-                    <TextBlock Text="Вы" FontSize="11" Foreground="Gray" Margin="0,-4,0,0"/>
+                    <TextBlock Text="{Binding UserStatus}" FontSize="11" Foreground="Gray" Margin="0,-4,0,0"/>
                 </StackPanel>
             </Border>
-            <!-- Список собеседников -->
+            <!-- Список собеседников с именем и статусом -->
             <TextBlock Text="Чаты" FontSize="12" Foreground="#2067b2" Margin="0,0,0,3"/>
-            <ListBox x:Name="UsersList" DisplayMemberPath="Name" MinHeight="110" Margin="0,0,0,12"/>
+            <ListBox x:Name="UsersList" MinHeight="110" Margin="0,0,0,12" ItemsSource="{Binding Users}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding Name}" Width="100" FontWeight="Bold"/>
+                            <TextBlock Text="{Binding Status}" Foreground="Gray" FontStyle="Italic" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
             <!-- Настройки портов -->
             <StackPanel>
                 <TextBlock Text="Локальный порт:" FontSize="12"/>
