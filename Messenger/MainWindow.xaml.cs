@@ -8,6 +8,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
 using System.ComponentModel;
+using System.Windows.Input;
 using messenger.Models;
 using messenger.Services;
 
@@ -195,9 +196,14 @@ namespace messenger
         {
             currentUser = UsersList.SelectedItem as User;
             if (currentUser != null && ChatMessages.ContainsKey(currentUser.Name))
+            {
                 MessagesList.ItemsSource = ChatMessages[currentUser.Name];
+                ScrollMessagesListToEnd();
+            }
             else
+            {
                 MessagesList.ItemsSource = null;
+            }
         }
 
         private async void SendButton_Click(object sender, RoutedEventArgs e)
@@ -217,6 +223,7 @@ namespace messenger
 
                 ChatMessages[currentUser.Name].Add(msg);
                 MessagesList.ItemsSource = ChatMessages[currentUser.Name];
+                ScrollMessagesListToEnd();
 
                 MessageTextBox.Text = string.Empty;
                 SaveHistory();
@@ -226,16 +233,33 @@ namespace messenger
                     string[] botReplies = new[] { "Да", "Нет", "Возможно" };
                     var botMsg = new Message(botReplies[rnd.Next(botReplies.Length)], BotName);
                     ChatMessages[BotName].Add(botMsg);
-
-                    if (currentUser != null && currentUser.Name == BotName)
+                    if (currentUser.Name == BotName)
                         MessagesList.ItemsSource = ChatMessages[BotName];
-
+                    ScrollMessagesListToEnd();
                     SaveHistory();
                     return;
                 }
 
                 if (chatService != null)
                     await chatService.SendMessageAsync(remoteIp, remotePort, msg);
+            }
+        }
+
+        private void ScrollMessagesListToEnd()
+        {
+            if (MessagesList.Items.Count > 0)
+            {
+                var last = MessagesList.Items[MessagesList.Items.Count - 1];
+                MessagesList.ScrollIntoView(last);
+            }
+        }
+
+        private void MessageTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter && !(Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift)))
+            {
+                e.Handled = true;
+                SendButton_Click(sender, new RoutedEventArgs());
             }
         }
 
@@ -277,7 +301,10 @@ namespace messenger
                         ChatMessages[msg.Sender] = new ObservableCollection<Message>();
                     ChatMessages[msg.Sender].Add(msg);
                     if (currentUser != null && currentUser.Name == msg.Sender)
+                    {
                         MessagesList.ItemsSource = ChatMessages[msg.Sender];
+                        ScrollMessagesListToEnd();
+                    }
                     SaveHistory();
                 }
             });
@@ -286,14 +313,9 @@ namespace messenger
         private void SaveHistory()
         {
             var options = new JsonSerializerOptions { WriteIndented = true };
-            var json = JsonSerializer.Serialize(ChatMessages, options);
-
-            var dictToSave = ChatMessages
-                .Where(kvp => kvp.Key != BotName)
-                .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-
+            var dictToSave = ChatMessages.Where(kvp => kvp.Key != BotName)
+                                         .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
             var jsonWithoutBot = JsonSerializer.Serialize(dictToSave, options);
-
             File.WriteAllText("chat_history.json", jsonWithoutBot);
         }
 
@@ -305,6 +327,7 @@ namespace messenger
             if (restored != null)
             {
                 ChatMessages = restored;
+                // Очищаем чат бота при загрузке
                 ChatMessages[BotName] = new ObservableCollection<Message>();
             }
         }

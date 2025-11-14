@@ -59,7 +59,8 @@
             </ListBox>
             <!-- Отправка -->
             <StackPanel Orientation="Horizontal" Margin="8,2,8,8" Grid.Row="1">
-                <TextBox x:Name="MessageTextBox" Width="400" Height="30" Margin="0,0,6,0"/>
+                <TextBox x:Name="MessageTextBox" Width="400" Height="80" Margin="0,0,6,0" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                         PreviewKeyDown="MessageTextBox_PreviewKeyDown"/>
                 <Button Content="Отправить" Width="105" Click="SendButton_Click"/>
             </StackPanel>
         </Grid>
